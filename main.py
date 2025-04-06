@@ -168,6 +168,13 @@ async def add(Interaction: discord.Interaction, link: str):
         await Interaction.response.send_message("El link no es de Vinted")
         return
 
+    if "order" in link:
+        link = link.replace("order=relevance", "order_by=newest_first")
+        link = link.replace("order=price_low_to_high", "order_by=newest_first")
+        link = link.replace("order=price_high_to_low", "order_by=newest_first")
+    else:
+        link += "&order_by=newest_first"
+    
     channel_id = Interaction.channel_id
     
     # Check if tracker for this link and channel already exists
@@ -250,7 +257,14 @@ async def list_all(Interaction: discord.Interaction):
         await Interaction.response.send_message("No hay trackers activos en el servidor.")
         return
 
-    tracker_list = "\n".join([f"{i+1}. {t['link']}" for i, t in enumerate(server_trackers)])
+    # Create a list with tracker info including channel names
+    formatted_trackers = []
+    for i, tracker in enumerate(server_trackers):
+        channel = bot.get_channel(tracker['channel_id'])
+        channel_name = f"#{channel.name}" if channel else f"Canal desconocido (ID: {tracker['channel_id']})"
+        formatted_trackers.append(f"{i+1}. {tracker['link']} - en {channel_name}")
+
+    tracker_list = "\n".join(formatted_trackers)
     await Interaction.response.send_message(f"Trackers activos en el servidor:\n{tracker_list}")
 
 # Run the bot
@@ -258,4 +272,3 @@ try:
     bot.run(TOKEN)
 except Exception as e:
     logging.error('Error when running the bot', exc_info=True)
-
