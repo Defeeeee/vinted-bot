@@ -153,6 +153,10 @@ bot = MyBot(intents=intents)
 async def on_ready():
     logging.info(f'Logged in as {bot.user} (ID: {bot.user.id})')
     logging.info('------')
+    await bot.tree.sync()
+    logging.info('Command tree synced.')
+    logging.info('Bot is ready!')
+    logging.info('------')
 
 @bot.tree.command(name='sync', description='Owner only')
 async def sync(Interaction: discord.Interaction):
