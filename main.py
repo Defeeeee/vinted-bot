@@ -85,9 +85,9 @@ class MyBot(commands.Bot):
                 ])
             logging.info(f"Saved {len(self.trackers)} trackers to {TRACKERS_FILE}")
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(seconds=30)
     async def check_trackers(self):
-        """Check all trackers for new items every 5 minutes"""
+        """Check all trackers for new items every 30 seconds"""
         logging.info("Checking trackers for updates...")
         
         for tracker in self.trackers:
@@ -197,7 +197,7 @@ async def add(Interaction: discord.Interaction, link: str):
     # Save updated trackers to CSV
     bot.save_trackers()
     
-    await Interaction.response.send_message(f"Tracker creado con éxito. El bot monitoreará nuevos artículos de {link} cada 5 minutos.")
+    await Interaction.response.send_message(f"Tracker creado con éxito. El bot monitoreará nuevos artículos de {link} cada 30 segundos.")
 
 @bot.tree.command(description="Elimina un tracker existente en este canal")
 @app_commands.describe(link="Link del tracker a eliminar")
@@ -272,3 +272,4 @@ try:
     bot.run(TOKEN)
 except Exception as e:
     logging.error('Error when running the bot', exc_info=True)
+
