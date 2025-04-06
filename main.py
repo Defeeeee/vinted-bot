@@ -257,12 +257,13 @@ async def list_all(Interaction: discord.Interaction):
         await Interaction.response.send_message("No hay trackers activos en el servidor.")
         return
 
-    # Create a list with tracker info including channel names
+    # Create a list with tracker info including channel mentions
     formatted_trackers = []
     for i, tracker in enumerate(server_trackers):
         channel = bot.get_channel(tracker['channel_id'])
-        channel_name = f"#{channel.name}" if channel else f"Canal desconocido (ID: {tracker['channel_id']})"
-        formatted_trackers.append(f"{i+1}. {tracker['link']} - en {channel_name}")
+        # Use channel mention format <#channel_id> to create clickable links
+        channel_mention = f"<#{tracker['channel_id']}>" if channel else f"Canal desconocido (ID: {tracker['channel_id']})"
+        formatted_trackers.append(f"{i+1}. {tracker['link']} - en {channel_mention}")
 
     tracker_list = "\n".join(formatted_trackers)
     await Interaction.response.send_message(f"Trackers activos en el servidor:\n{tracker_list}")
