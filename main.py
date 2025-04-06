@@ -85,72 +85,72 @@ class MyBot(commands.Bot):
                 ])
             logging.info(f"Saved {len(self.trackers)} trackers to {TRACKERS_FILE}")
 
+    @tasks.loop(minutes=5)
+    async def check_trackers(self):
+        """Check all trackers for new items every 5 minutes"""
+        logging.info("Checking trackers for updates...")
+        
+        for tracker in self.trackers:
+            try:
+                channel = self.get_channel(tracker['channel_id'])
+                if not channel:
+                    logging.warning(f"Channel {tracker['channel_id']} not found for tracker {tracker['link']}")
+                    continue
+                    
+                # Fetch items from the tracked link
+                items = await fetch_vinted_items(tracker['link'])
+                
+                if not items:
+                    logging.warning(f"No items found for link: {tracker['link']}")
+                    continue
+                    
+                # Update the last check time
+                current_time = time.time()
+                
+                # Get item IDs from URLs to compare
+                new_items = []
+                current_item_ids = []
+                
+                for item in items:
+                    # Extract item ID from URL
+                    item_id = item['url'].split('/')[-1].split('?')[0]
+                    current_item_ids.append(item_id)
+                    
+                    # If this is a new item (not in last_item_ids)
+                    if item_id not in tracker['last_item_ids']:
+                        new_items.append(item)
+                
+                # Send new items to the channel
+                for item in new_items:
+                    embed = discord.Embed(color=discord.Color.blue())
+                    embed.set_image(url=item['thumbnail'])
+                    embed.set_footer(text=item['price'])
+                    embed.set_author(name=item['description'], url=item['url'])
+                    embed.timestamp = datetime.datetime.now()
+                    await channel.send(embed=embed)
+                    logging.info(f"Sent new item to channel {tracker['channel_id']}")
+                
+                # Update the tracker with new information
+                tracker['last_check_time'] = current_time
+                tracker['last_item_ids'] = current_item_ids
+                
+            except Exception as e:
+                logging.error(f"Error checking tracker {tracker['link']}: {e}", exc_info=True)
+        
+        # Save updated trackers to CSV
+        self.save_trackers()
+
+    @check_trackers.before_loop
+    async def before_check_trackers(self):
+        """Wait until the bot is ready before starting the tracker loop"""
+        await self.wait_until_ready()
+
 bot = MyBot(intents=intents)
 
 @bot.event
 async def on_ready():
     logging.info(f'Logged in as {bot.user} (ID: {bot.user.id})')
     logging.info('------')
-
-@tasks.loop(minutes=5)
-async def check_trackers():
-    """Check all trackers for new items every 5 minutes"""
-    logging.info("Checking trackers for updates...")
-    
-    for tracker in bot.trackers:
-        try:
-            channel = bot.get_channel(tracker['channel_id'])
-            if not channel:
-                logging.warning(f"Channel {tracker['channel_id']} not found for tracker {tracker['link']}")
-                continue
-                
-            # Fetch items from the tracked link
-            items = await fetch_vinted_items(tracker['link'])
-            
-            if not items:
-                logging.warning(f"No items found for link: {tracker['link']}")
-                continue
-                
-            # Update the last check time
-            current_time = time.time()
-            
-            # Get item IDs from URLs to compare
-            new_items = []
-            current_item_ids = []
-            
-            for item in items:
-                # Extract item ID from URL
-                item_id = item['url'].split('/')[-1].split('?')[0]
-                current_item_ids.append(item_id)
-                
-                # If this is a new item (not in last_item_ids)
-                if item_id not in tracker['last_item_ids']:
-                    new_items.append(item)
-            
-            # Send new items to the channel
-            for item in new_items:
-                embed = discord.Embed(color=discord.Color.blue())
-                embed.set_image(url=item['thumbnail'])
-                embed.set_footer(text=item['price'])
-                embed.set_author(name=item['description'], url=item['url'])
-                embed.timestamp = datetime.datetime.now()
-                await channel.send(embed=embed)
-                logging.info(f"Sent new item to channel {tracker['channel_id']}")
-            
-            # Update the tracker with new information
-            tracker['last_check_time'] = current_time
-            tracker['last_item_ids'] = current_item_ids
-            
-        except Exception as e:
-            logging.error(f"Error checking tracker {tracker['link']}: {e}", exc_info=True)
-    
-    # Save updated trackers to CSV
-    bot.save_trackers()
-
-@check_trackers.before_loop
-async def before_check_trackers():
-    """Wait until the bot is ready before starting the tracker loop"""
-    await bot.wait_until_ready()
 
 @bot.tree.command(name='sync', description='Owner only')
 async def sync(Interaction: discord.Interaction):
@@ -191,39 +191,6 @@ async def add(Interaction: discord.Interaction, link: str):
     bot.save_trackers()
     
     await Interaction.response.send_message(f"Tracker creado con éxito. El bot monitoreará nuevos artículos de {link} cada 5 minutos.")
-
-# Previous implementation of the add command (commented out)
-'''
-@bot.tree.command(description="añade el monitoreo del link deseado")
-@app_commands.describe(link="Link to monitor")
-async def add(Interaction: discord.Interaction, link: str):
-    if not link.startswith("https://www.vinted.es/"):
-        await Interaction.response.send_message("El link no es de Vinted")
-        return
-
-    # defer the response to give time for processing
-    await Interaction.response.defer(thinking=True)
-    # Fetch items from the provided link
-    items = await fetch_vinted_items(link)  # Await the coroutine
-
-    if not items:
-        await Interaction.followup.send("No se encontraron artículos en el enlace proporcionado.")
-        return
-
-    # Process and send the items to the user
-    for item in items:
-        embed = discord.Embed(
-            color=discord.Color.blue()
-        )
-        embed.set_image(url=item['thumbnail'])
-        embed.set_footer(text=item['price'])
-        embed.set_author(name=item['description'],url=item['url'])
-        # spanish tz
-        embed.timestamp = datetime.datetime.now()
-        await Interaction.followup.send(embed=embed)
-
-    await Interaction.followup.send("Los artículos han sido enviados a tu DM.")
-'''
 
 @bot.tree.command(description="Elimina un tracker existente en este canal")
 @app_commands.describe(link="Link del tracker a eliminar")
@@ -285,8 +252,10 @@ async def list_all(Interaction: discord.Interaction):
 
     tracker_list = "\n".join([f"{i+1}. {t['link']}" for i, t in enumerate(server_trackers)])
     await Interaction.response.send_message(f"Trackers activos en el servidor:\n{tracker_list}")
+
 # Run the bot
 try:
     bot.run(TOKEN)
 except Exception as e:
     logging.error('Error when running the bot', exc_info=True)
+
