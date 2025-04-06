@@ -33,10 +33,12 @@ class MyBot(commands.Bot):
         self.trackers = []  # List to store active trackers
         
     async def setup_hook(self):
+        """
         guild = discord.Object(id=868582958729150504)
         self.tree.clear_commands(guild=guild)
         self.tree.copy_global_to(guild=guild)
         await self.tree.sync(guild=guild)
+        """
         # Load existing trackers from CSV
         self.load_trackers()
         # Start the check_trackers task
