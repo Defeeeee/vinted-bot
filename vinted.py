@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 import asyncio
+import re
 
 async def fetch_vinted_items(search_url):
     headers = {
@@ -40,13 +41,14 @@ async def fetch_vinted_items(search_url):
     for item_div in soup.select(".feed-grid__item"):
         link_tag = item_div.find("a")
         img_tag = item_div.find("img")
-        # Remove the price part
-        # price_tag = item_div.find(attrs={"class": lambda x: x and "ItemBox_price" in x})
 
         title = img_tag["alt"] if img_tag and img_tag.has_attr("alt") else "No title"
         url = link_tag["href"] if link_tag and link_tag.has_attr("href") else "No link"
-        # price = price_tag.text.strip() if price_tag else "No price"
         thumbnail = img_tag["src"] if img_tag and img_tag.has_attr("src") else "No thumbnail"
+
+        # Skip items without proper links
+        if url == "No link":
+            continue
 
         title_parts = title.split(", ")
 
