@@ -1,3 +1,4 @@
+import datetime
 import os
 import discord
 from discord.ext import commands, tasks
@@ -65,11 +66,13 @@ async def add(Interaction: discord.Interaction, link: str):
     # Process and send the items to the user
     for item in items:
         embed = discord.Embed(
-            title=item['description'],
-            description=f"Estado: {item['conditions']}\nPrecio: {item['price']}",
             color=discord.Color.blue()
         )
         embed.set_image(url=item['thumbnail'])
+        embed.set_footer(text=item['price'])
+        embed.set_author(name=item['description'],url=item['url'])
+        # spanish tz
+        embed.timestamp = datetime.datetime.now()
         await Interaction.followup.send(embed=embed)
 
     await Interaction.followup.send("Los artículos han sido enviados a tu DM.")
