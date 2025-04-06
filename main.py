@@ -3,6 +3,7 @@ import os
 import discord
 from discord.ext import commands, tasks
 import logging
+
 from dotenv import load_dotenv
 from discord import app_commands
 import csv
@@ -99,6 +100,7 @@ class MyBot(commands.Bot):
                     
                 # Fetch items from the tracked link
                 items = await fetch_vinted_items(tracker['link'])
+                items = items[:5]  # Only check the first 5 items
                 
                 if not items:
                     logging.warning(f"No items found for link: {tracker['link']}")
@@ -182,13 +184,22 @@ async def add(Interaction: discord.Interaction, link: str):
         if tracker['link'] == link and tracker['channel_id'] == channel_id:
             await Interaction.response.send_message("Ya existe un tracker para este link en este canal.")
             return
-    
+
+    await Interaction.response.defer(thinking=True)
+
+    # Fetch items from the link
+    items = await fetch_vinted_items(link)
+    item_ids = []
+    for item in items:
+        item_id = item['url'].split('/')[-1].split('?')[0]
+        item_ids.append(item_id)
+
     # Create a new tracker
     new_tracker = {
         'link': link,
         'channel_id': channel_id,
         'last_check_time': time.time(),
-        'last_item_ids': []  # Will be populated on first check
+        'last_item_ids': item_ids
     }
     
     # Add to trackers list
@@ -197,7 +208,7 @@ async def add(Interaction: discord.Interaction, link: str):
     # Save updated trackers to CSV
     bot.save_trackers()
     
-    await Interaction.response.send_message(f"Tracker creado con éxito. El bot monitoreará nuevos artículos de {link} cada 30 segundos.")
+    await Interaction.followup.send("Tracker creado con éxito. El bot monitoreará nuevos artículos en este canal cada 30 segundos.")
 
 @bot.tree.command(description="Elimina un tracker existente en este canal")
 @app_commands.describe(link="Link del tracker a eliminar")
@@ -216,9 +227,9 @@ async def remove(Interaction: discord.Interaction, link: str = None):
                 
         if removed:
             bot.save_trackers()
-            await Interaction.response.send_message(f"Tracker para {link} eliminado.")
+            await Interaction.response.send_message(f"Tracker para `{link}` eliminado.")
         else:
-            await Interaction.response.send_message(f"No se encontró un tracker para {link} en este canal.")
+            await Interaction.response.send_message(f"No se encontró un tracker para `{link}` en este canal.")
         return
         
     # If no link is provided, show list of trackers in this channel
@@ -228,7 +239,7 @@ async def remove(Interaction: discord.Interaction, link: str = None):
         await Interaction.response.send_message("No hay trackers activos en este canal.")
         return
         
-    tracker_list = "\n".join([f"{i+1}. {t['link']}" for i, t in enumerate(channel_trackers)])
+    tracker_list = "\n".join([f"{i+1}. `{t['link']}`" for i, t in enumerate(channel_trackers)])
     await Interaction.response.send_message(f"Trackers activos en este canal:\n{tracker_list}\n\nUsa `/remove [link]` para eliminar un tracker específico.")
 
 @bot.tree.command(description="Muestra los trackers activos en este canal")
@@ -243,7 +254,7 @@ async def list(Interaction: discord.Interaction):
         await Interaction.response.send_message("No hay trackers activos en este canal.")
         return
         
-    tracker_list = "\n".join([f"{i+1}. {t['link']}" for i, t in enumerate(channel_trackers)])
+    tracker_list = "\n".join([f"{i+1}. `{t['link']}`" for i, t in enumerate(channel_trackers)])
     await Interaction.response.send_message(f"Trackers activos en este canal:\n{tracker_list}")
 
 # muestra todos los trackers del servidor
@@ -263,7 +274,7 @@ async def list_all(Interaction: discord.Interaction):
         channel = bot.get_channel(tracker['channel_id'])
         # Use channel mention format <#channel_id> to create clickable links
         channel_mention = f"<#{tracker['channel_id']}>" if channel else f"Canal desconocido (ID: {tracker['channel_id']})"
-        formatted_trackers.append(f"{i+1}. {tracker['link']} - en {channel_mention}")
+        formatted_trackers.append(f"{i+1}. `{tracker['link']}` en {channel_mention}")
 
     tracker_list = "\n".join(formatted_trackers)
     await Interaction.response.send_message(f"Trackers activos en el servidor:\n{tracker_list}")

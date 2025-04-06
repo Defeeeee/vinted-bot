@@ -1,8 +1,6 @@
-import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 import asyncio
-import re
 
 async def fetch_vinted_items(search_url):
     headers = {
